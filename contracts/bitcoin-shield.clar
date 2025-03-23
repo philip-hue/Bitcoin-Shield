@@ -68,3 +68,47 @@
 (define-data-var next-leaf-index uint u0)
 (define-data-var contract-paused bool false)
 (define-data-var total-deposited uint u0)
+
+;; Storage Maps
+(define-map deposit-records 
+    { commitment: (buff 32) } 
+    { 
+        leaf-index: uint, 
+        stacks-block-height: uint,
+        depositor: principal,
+        amount: uint 
+    }
+)
+
+(define-map nullifier-status 
+    { nullifier: (buff 32) } 
+    { 
+        used: bool, 
+        withdrawn-amount: uint,
+        withdrawn-at: uint 
+    }
+)
+
+(define-map merkle-nodes 
+    { level: uint, index: uint } 
+    { node-hash: (buff 32) }
+)
+
+;; Input Validation Helpers
+(define-private (is-valid-token (token <ft-trait>))
+    (is-some (some token))
+)
+
+(define-private (is-valid-commitment (commitment (buff 32)))
+    (and 
+        (not (is-eq commitment ZERO-VALUE))
+        (< (len commitment) u33)
+    )
+)
+
+(define-private (is-valid-nullifier (nullifier (buff 32)))
+    (and 
+        (not (is-eq nullifier ZERO-VALUE))
+        (< (len nullifier) u33)
+    )
+)
