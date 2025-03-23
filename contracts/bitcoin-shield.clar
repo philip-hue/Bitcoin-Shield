@@ -112,3 +112,45 @@
         (< (len nullifier) u33)
     )
 )
+
+(define-private (is-valid-proof (proof (list 20 (buff 32))))
+    (and 
+        (> (len proof) u0)
+        (<= (len proof) u20)
+    )
+)
+
+;; Authorization Check
+(define-private (is-contract-owner (sender principal))
+    (is-eq sender CONTRACT-OWNER)
+)
+
+;; Pause Control
+(define-public (toggle-contract-pause)
+    (begin
+        (asserts! (is-contract-owner tx-sender) (err ERR-NOT-AUTHORIZED))
+        (var-set contract-paused (not (var-get contract-paused)))
+        (ok (var-get contract-paused))
+    )
+)
+
+;; Internal Helper Functions
+(define-private (combine-hashes (left (buff 32)) (right (buff 32)))
+    (sha256 (concat left right))
+)
+
+(define-private (is-valid-node-hash? (hash (buff 32)))
+    (not (is-eq hash ZERO-VALUE))
+)
+
+(define-private (get-merkle-node (level uint) (index uint))
+    (default-to 
+        ZERO-VALUE
+        (get node-hash (map-get? merkle-nodes { level: level, index: index })))
+)
+
+(define-private (set-merkle-node (level uint) (index uint) (hash (buff 32)))
+    (map-set merkle-nodes
+        { level: level, index: index }
+        { node-hash: hash })
+)
