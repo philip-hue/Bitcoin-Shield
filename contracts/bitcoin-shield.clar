@@ -154,3 +154,53 @@
         { level: level, index: index }
         { node-hash: hash })
 )
+
+;; Merkle Tree Update Logic
+(define-private (update-merkle-parent (level uint) (index uint))
+    (let (
+        (parent-index (/ index u2))
+        (is-right-child (is-eq (mod index u2) u1))
+        (sibling-index (if is-right-child (- index u1) (+ index u1)))
+        (current-node (get-merkle-node level index))
+        (sibling-node (get-merkle-node level sibling-index))
+    )
+        (set-merkle-node 
+            (+ level u1) 
+            parent-index 
+            (if is-right-child
+                (combine-hashes sibling-node current-node)
+                (combine-hashes current-node sibling-node)))
+    )
+)
+
+;; Verification Helpers
+(define-private (verify-proof-step
+    (proof-element (buff 32))
+    (state { current-hash: (buff 32), is-valid: bool }))
+    (let (
+        (current-hash (get current-hash state))
+        (combined-hash (combine-hashes current-hash proof-element))
+    )
+        {
+            current-hash: combined-hash,
+            is-valid: (and 
+                (get is-valid state) 
+                (is-valid-node-hash? combined-hash))
+        }
+    )
+)
+
+(define-private (verify-merkle-proof 
+    (leaf-hash (buff 32))
+    (proof (list 20 (buff 32)))
+    (root (buff 32)))
+    (let (
+        (proof-result (fold verify-proof-step
+            proof
+            { current-hash: leaf-hash, is-valid: true }))
+    )
+        (if (get is-valid proof-result)
+            (ok true)
+            (err ERR-INVALID-PROOF))
+    )
+)
