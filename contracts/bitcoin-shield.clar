@@ -259,3 +259,48 @@
         )
     )
 )
+
+;; Public Withdrawal Function
+(define-public (process-withdrawal
+    (nullifier (buff 32))
+    (root (buff 32))
+    (proof (list 20 (buff 32)))
+    (recipient principal)
+    (token <ft-trait>)
+    (amount uint))
+    (begin
+        ;; Validate inputs
+        (asserts! (is-valid-token token) (err ERR-INVALID-INPUT))
+        (asserts! (is-valid-nullifier nullifier) (err ERR-INVALID-INPUT))
+        (asserts! (is-valid-proof proof) (err ERR-INVALID-INPUT))
+        
+        ;; Check contract is not paused
+        (asserts! (not (var-get contract-paused)) (err ERR-NOT-AUTHORIZED))
+        
+        ;; Validate withdrawal amount
+        (asserts! (> amount u0) (err ERR-INVALID-AMOUNT))
+        (asserts! (<= amount MAX-DEPOSIT-AMOUNT) (err ERR-INVALID-AMOUNT))
+        
+        ;; Check nullifier status
+        (asserts! (is-none (map-get? nullifier-status { nullifier: nullifier })) 
+            (err ERR-NULLIFIER-EXISTS))
+        
+        ;; Verify merkle proof
+        (try! (verify-merkle-proof nullifier proof root))
+        
+        ;; Mark nullifier as used and record withdrawal
+        (map-set nullifier-status 
+            { nullifier: nullifier } 
+            { 
+                used: true, 
+                withdrawn-amount: amount,
+                withdrawn-at: stacks-block-height 
+            })
+        
+        ;; Transfer tokens with error handling
+        (match (as-contract (contract-call? token transfer amount tx-sender recipient none))
+            success (ok true)
+            error (err ERR-TRANSFER-FAILED)
+        )
+    )
+)
